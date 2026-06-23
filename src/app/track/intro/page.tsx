@@ -1,6 +1,7 @@
 "use client"
 import { useState, ReactNode } from "react"
 import { animated, useSpring } from "@react-spring/web"
+import { sendGAEvent } from "@next/third-parties/google"
 import { TypeAnimation } from "react-type-animation"
 import { Market } from "@/app/market/market"
 import { STARTING_USDC_BALANCE } from "@/constants"
@@ -77,6 +78,22 @@ export type BlockSequence = (
   | ReactNode
 )[]
 
+// The reading funnel runs from step 1 (first click) through the last text
+// reveal at chapterOneRead === TOTAL_EXPLAINER_STEPS. We stop emitting past
+// that so trailing clicks don't pollute the funnel.
+const TOTAL_EXPLAINER_STEPS = 9
+
+const trackExplainerStep = (step: number) => {
+  if (process.env.NODE_ENV !== "production") return
+  if (step < 1 || step > TOTAL_EXPLAINER_STEPS) return
+  // Single event with a `step` param; build the funnel in GA4 by registering
+  // `step` as a custom dimension. Last step doubles as "completed".
+  sendGAEvent("event", "explainer_step", {
+    step,
+    completed: step === TOTAL_EXPLAINER_STEPS,
+  })
+}
+
 export default function Intro() {
   const [chapterOneRead, setRead] = useState(0)
 
@@ -94,7 +111,11 @@ export default function Intro() {
   const nextChat = () => {
     setWaiting(true)
     // if (!waiting) {
-    setRead((prev) => prev + 1)
+    setRead((prev) => {
+      const next = prev + 1
+      trackExplainerStep(next)
+      return next
+    })
     //}
   }
 

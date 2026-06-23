@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import { Courier_Prime } from "next/font/google"
+import { GoogleAnalytics } from "@next/third-parties/google"
 import "./globals.css"
 
 const font = Courier_Prime({ subsets: ["latin"], weight: "400" })
@@ -26,6 +27,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={font.className}>{children}</body>
+      {process.env.NODE_ENV === "production" && (
+        <GoogleAnalytics gaId="G-ENZ4WCFPHZ" />
+      )}
     </html>
   )
 }
