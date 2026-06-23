@@ -9,6 +9,7 @@ import clsx from "clsx"
 import { animated, useSpring } from "@react-spring/web"
 import { Redeem2 } from "@/app/redeem/redeem"
 import { Transition } from "@headlessui/react"
+import { sendGAEvent } from "@next/third-parties/google"
 
 const usePriceAnimation = (go: boolean) => {
   const spring = useSpring({
@@ -33,6 +34,33 @@ const formatCountdown = (minutes: number) => {
 
 //
 const TIME_LEFT = 1440 * 4 - 870
+
+// --- Analytics: explainer funnel -------------------------------------------
+// The whole guide is driven by a single `read` counter that starts at -9 and
+// ends when the EndCard shows (read > 34). We normalise to a 1-based step
+// (read + 9) so the first interaction is step 1 and the EndCard is step 44,
+// and tag each step with its narrative chapter so GA4 can show chapter-level
+// dropoff as well as step-level. Production-only, matching <GoogleAnalytics>.
+const TOTAL_EXPLAINER_STEPS = 44 // read 35 (EndCard) => step 44
+
+const explainerChapter = (read: number) => {
+  if (read <= 0) return "1_intro" // 2064 setup + spot market
+  if (read <= 16) return "2_conditional_tokens" // p/fUSDC, splitting
+  if (read <= 26) return "3_conditional_markets" // how futarchy decides
+  if (read <= 34) return "4_resolution" // proposal passes, redemption
+  return "5_complete" // EndCard
+}
+
+const trackExplainerStep = (read: number) => {
+  if (process.env.NODE_ENV !== "production") return
+  const step = read + 9 // first click -> step 1
+  if (step < 1 || step > TOTAL_EXPLAINER_STEPS) return
+  sendGAEvent("event", "explainer_step", {
+    step,
+    chapter: explainerChapter(read),
+    completed: step === TOTAL_EXPLAINER_STEPS,
+  })
+}
 
 const Block1 = ({
   read,
@@ -128,7 +156,11 @@ export default function Chapter2() {
   const nextChat = () => {
     setWaiting(true)
     // if (!waiting) {
-    setRead((prev) => prev + 1)
+    setRead((prev) => {
+      const next = prev + 1
+      trackExplainerStep(next)
+      return next
+    })
     //}
   }
 
